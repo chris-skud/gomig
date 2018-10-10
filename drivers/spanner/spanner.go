@@ -22,7 +22,10 @@ func init() {
 }
 
 // DefaultMigrationsTable is used if no custom table is specified
-const DefaultMigrationsTable = "SchemaMigrations"
+const (
+	DefaultMigrationsTable = "SchemaMigrations"
+	VersionColName         = "Version"
+)
 
 // Driver errors
 var (
@@ -131,7 +134,7 @@ func (s *Spanner) setVersion(file file.File) error {
 		mutation = spanner.Delete(s.config.MigrationsTable, spanner.Key{version})
 	} else {
 		mutation = spanner.Insert(s.config.MigrationsTable,
-			[]string{"Version"},
+			[]string{VersionColName},
 			[]interface{}{version},
 		)
 	}
@@ -144,7 +147,7 @@ func (s *Spanner) setVersion(file file.File) error {
 func (s *Spanner) Version() (file.Version, error) {
 	var version file.Version
 	ctx := context.Background()
-	stmt := spanner.NewStatement("SELECT Version FROM " + DefaultMigrationsTable + " ORDER BY Version DESC LIMIT 1")
+	stmt := spanner.NewStatement("SELECT " + VersionColName + " FROM " + DefaultMigrationsTable + " ORDER BY " + VersionColName + " DESC LIMIT 1")
 	iter := s.db.data.Single().Query(ctx, stmt)
 
 	defer iter.Stop()
@@ -157,10 +160,13 @@ func (s *Spanner) Version() (file.Version, error) {
 			return version, err
 		}
 
-		err = row.ToStruct(&version)
+		strct := &struct{ Version int64 }{}
+		err = row.ToStruct(strct)
 		if err != nil {
 			return version, err
 		}
+
+		version = file.Version(strct.Version)
 	}
 }
 
@@ -169,7 +175,7 @@ func (s *Spanner) Versions() (file.Versions, error) {
 	var versions file.Versions
 	ctx := context.Background()
 
-	iter := s.db.data.Single().Read(ctx, "Albums", spanner.AllKeys(), []string{"Version"})
+	iter := s.db.data.Single().Read(ctx, DefaultMigrationsTable, spanner.AllKeys(), []string{VersionColName})
 	defer iter.Stop()
 	for {
 		row, err := iter.Next()
@@ -180,13 +186,13 @@ func (s *Spanner) Versions() (file.Versions, error) {
 			return versions, nil
 		}
 
-		var version file.Version
-		err = row.ToStruct(&version)
+		strct := &struct{ Version int64 }{}
+		err = row.ToStruct(strct)
 		if err != nil {
 			return versions, err
 		}
 
-		versions = append(versions, version)
+		versions = append(versions, file.Version(strct.Version))
 	}
 }
 
