@@ -1,0 +1,8 @@
+gomig
+.vscode
+.env
+cover.out
+.DS_Store
+bin/
+debug
+debug.test

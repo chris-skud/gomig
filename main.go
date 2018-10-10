@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/chris-skud/gomig/cmd/commands"
+	"github.com/chris-skud/gomig/commands"
 	_ "github.com/chris-skud/gomig/drivers/spanner"
 	"github.com/urfave/cli"
 )
