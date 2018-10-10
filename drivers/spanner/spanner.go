@@ -129,7 +129,7 @@ func (s *Spanner) setVersion(version file.Version) error {
 				spanner.Delete(s.config.MigrationsTable, spanner.AllKeys()),
 				spanner.Insert(s.config.MigrationsTable,
 					[]string{"Version"},
-					[]interface{}{version},
+					[]interface{}{int64(version)},
 				)}
 			return txn.BufferWrite(m)
 		})
@@ -141,7 +141,7 @@ func (s *Spanner) setVersion(version file.Version) error {
 func (s *Spanner) Version() (file.Version, error) {
 	var version file.Version
 	ctx := context.Background()
-	stmt := spanner.NewStatement("SELECT Version FROM " + DefaultMigrationsTable + " ORDER BY version DESC LIMIT 1")
+	stmt := spanner.NewStatement("SELECT Version FROM " + DefaultMigrationsTable + " ORDER BY Version DESC LIMIT 1")
 	iter := s.db.data.Single().Query(ctx, stmt)
 
 	defer iter.Stop()
