@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
+	"github.com/chris-skud/gomig/direction"
 	"github.com/chris-skud/gomig/driver"
 	"github.com/chris-skud/gomig/file"
 	"google.golang.org/api/iterator"
@@ -97,7 +98,7 @@ func (s *Spanner) Migrate(file file.File) error {
 		return err
 	}
 
-	err = s.setVersion(file.Version)
+	err = s.setVersion(file)
 	if err != nil {
 		return err
 	}
@@ -120,20 +121,22 @@ func (s *Spanner) Migrate(file file.File) error {
 	return nil
 }
 
-func (s *Spanner) setVersion(version file.Version) error {
+func (s *Spanner) setVersion(file file.File) error {
 	ctx := context.Background()
 
-	_, err := s.db.data.ReadWriteTransaction(ctx,
-		func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-			m := []*spanner.Mutation{
-				spanner.Delete(s.config.MigrationsTable, spanner.AllKeys()),
-				spanner.Insert(s.config.MigrationsTable,
-					[]string{"Version"},
-					[]interface{}{int64(version)},
-				)}
-			return txn.BufferWrite(m)
-		})
+	version := int64(file.Version)
 
+	var mutation *spanner.Mutation
+	if file.Direction == direction.Down {
+		mutation = spanner.Delete(s.config.MigrationsTable, spanner.Key{version})
+	} else {
+		mutation = spanner.Insert(s.config.MigrationsTable,
+			[]string{"Version"},
+			[]interface{}{version},
+		)
+	}
+
+	_, err := s.db.data.Apply(ctx, []*spanner.Mutation{mutation})
 	return err
 }
 
