@@ -93,38 +93,55 @@ func (s *Spanner) Close() error {
 // the pipe channel to return any errors or other useful information.
 func (s *Spanner) Migrate(file file.File) error {
 	err := file.ReadContent()
+	if err != nil {
+		return err
+	}
+
+	err = s.setVersion(file.Version)
+	if err != nil {
+		return err
+	}
 
 	// run migration
 	stmts := migrationStatements(file.Content)
 	ctx := context.Background()
-
-	fmt.Printf("stmts: %s", string(stmts[0]))
-	fmt.Println("s.config.DatabaseName ", s.config.DatabaseName)
-	fmt.Println("s.config.DatabaseName ", s.config.DatabaseName)
 
 	op, err := s.db.admin.UpdateDatabaseDdl(ctx, &adminpb.UpdateDatabaseDdlRequest{
 		Database:   s.config.DatabaseName,
 		Statements: stmts,
 	})
 	if err != nil {
-		fmt.Println("error 1: ", err.Error())
 		return err
 	}
 	if err := op.Wait(ctx); err != nil {
-		fmt.Println("op.Wait err ", err.Error())
 		return err
 	}
 
 	return nil
 }
 
+func (s *Spanner) setVersion(version file.Version) error {
+	ctx := context.Background()
+
+	_, err := s.db.data.ReadWriteTransaction(ctx,
+		func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+			m := []*spanner.Mutation{
+				spanner.Delete(s.config.MigrationsTable, spanner.AllKeys()),
+				spanner.Insert(s.config.MigrationsTable,
+					[]string{"Version"},
+					[]interface{}{version},
+				)}
+			return txn.BufferWrite(m)
+		})
+
+	return err
+}
+
 // Version returns the current migration version.
 func (s *Spanner) Version() (file.Version, error) {
 	var version file.Version
 	ctx := context.Background()
-	// iter := s.db.data.ReadOnlyTransaction().Read(ctx, tableName, spanner.AllKeys, "version")
-	// row, err := iter.Next()
-	stmt := spanner.NewStatement("SELECT version FROM " + DefaultMigrationsTable + " ORDER BY version DESC LIMIT 1")
+	stmt := spanner.NewStatement("SELECT Version FROM " + DefaultMigrationsTable + " ORDER BY version DESC LIMIT 1")
 	iter := s.db.data.Single().Query(ctx, stmt)
 
 	defer iter.Stop()
@@ -149,7 +166,7 @@ func (s *Spanner) Versions() (file.Versions, error) {
 	var versions file.Versions
 	ctx := context.Background()
 
-	iter := s.db.data.Single().Read(ctx, "Albums", spanner.AllKeys(), []string{"version"})
+	iter := s.db.data.Single().Read(ctx, "Albums", spanner.AllKeys(), []string{"Version"})
 	defer iter.Stop()
 	for {
 		row, err := iter.Next()

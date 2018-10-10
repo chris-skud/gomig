@@ -347,5 +347,5 @@ func logCurrentVersion(ctx context.Context, migrate *migrate.Handle) {
 	if err != nil {
 		log.Fatalf("Unable to fetch version: %s", err.Error())
 	}
-	log.Printf("done: current-version %s", version)
+	log.Printf("done: current-version %d", version)
 }
