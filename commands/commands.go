@@ -105,7 +105,7 @@ var upCommand = cli.Command{
 		defer cancel()
 		err := migrate.Up(mctx)
 		if err != nil {
-			log.Fatalf("Failed to apply all -up- migrations")
+			log.Fatalf("Failed to apply all -up- migrations: %s", err.Error())
 		}
 		logCurrentVersion(mctx, migrate)
 		return nil
@@ -122,7 +122,7 @@ var downCommand = cli.Command{
 		defer cancel()
 		err := migrate.Down(mctx)
 		if err != nil {
-			log.Fatalf("Failed to apply all -down- migrations")
+			log.Fatalf("Failed to apply all -down- migrations: %s", err.Error())
 		}
 		logCurrentVersion(mctx, migrate)
 		return nil
@@ -139,7 +139,9 @@ var redoCommand = cli.Command{
 		migrate, mctx, cancel := newMigrateWithCtx(ctx.GlobalString("url"), ctx.GlobalString("path"))
 		defer cancel()
 		err := migrate.Redo(mctx)
-		log.Fatalf("Failed to redo last migration: %s", err.Error())
+		if err != nil {
+			log.Fatalf("Failed to redo last migration: %s", err.Error())
+		}
 		logCurrentVersion(mctx, migrate)
 		return nil
 	},
@@ -155,7 +157,7 @@ var versionCommand = cli.Command{
 		defer cancel()
 		version, err := migrate.Version(mctx)
 		if err != nil {
-			log.Fatalf("Unable to fetch version")
+			log.Fatalf("Unable to fetch version: %s", err.Error())
 		}
 
 		log.Printf("Current version: %d", version)
@@ -173,7 +175,7 @@ var resetCommand = cli.Command{
 		defer cancel()
 		err := migrate.Redo(mctx)
 		if err != nil {
-			log.Fatalf("Failed to reset database")
+			log.Fatalf("Failed to reset database: %s", err.Error())
 		}
 		logCurrentVersion(mctx, migrate)
 		return nil
@@ -191,7 +193,7 @@ var migrateCommand = cli.Command{
 		relativeN := ctx.Args().First()
 		relativeNInt, err := strconv.Atoi(relativeN)
 		if err != nil {
-			log.Fatalf("Unable to parse param <n>")
+			log.Fatalf("Unable to parse param <n>: %s", err.Error())
 		}
 
 		log.Printf("Applying %d migrations", relativeNInt)
@@ -218,7 +220,6 @@ var applyCommand = cli.Command{
 		version := ctx.Args().First()
 		versionInt, err := strconv.Atoi(version)
 		if err != nil {
-
 			log.Fatalf("Unable to parse param <n>: %s", err.Error())
 		}
 
